@@ -1,5 +1,5 @@
-import * as THREE from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 const params = {
   enableWind: true,
@@ -249,7 +249,7 @@ let sphere;
 let object;
 
 (function init() {
-  container = document.createElement("div");
+  container = document.createElement('div');
   document.body.appendChild(container);
   // scene
   scene = new THREE.Scene();
@@ -280,7 +280,7 @@ let object;
   scene.add(light);
   // cloth material
   const loader = new THREE.TextureLoader();
-  const clothTexture = loader.load("public/circuit_pattern.png");
+  const clothTexture = loader.load('public/circuit_pattern.png');
   clothTexture.anisotropy = 16;
   const clothMaterial = new THREE.MeshLambertMaterial({
     map: clothTexture,
@@ -315,7 +315,7 @@ let object;
   scene.add(sphere);
 
   // ground
-  const groundTexture = loader.load("public/grasslight-big.jpg");
+  const groundTexture = loader.load('public/grasslight-big.jpg');
   groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
   groundTexture.repeat.set(25, 25);
   groundTexture.anisotropy = 16;

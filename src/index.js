@@ -1,14 +1,14 @@
-import * as THREE from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import CANNON from "cannon";
-import { World, WorldObject, Sphere } from "./3d.js";
-import { vec, clamp } from "./math.js";
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import CANNON from 'cannon';
+import { World, WorldObject, Sphere } from './3d.js';
+import { vec, clamp } from './math.js';
 
 const renderer = new THREE.WebGLRenderer();
 const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
 const controls = new OrbitControls(camera, renderer.domElement);
 
-window.addEventListener("resize", setWindowSize);
+window.addEventListener('resize', setWindowSize);
 document.body.appendChild(renderer.domElement);
 
 setWindowSize();
@@ -52,7 +52,7 @@ clothSphereContactMaterial.contactEquationRelaxation = 3;
 world.world.addContactMaterial(clothSphereContactMaterial);
 
 const loader = new THREE.TextureLoader();
-const clothTexture = loader.load("public/sunflower.jpg");
+const clothTexture = loader.load('public/sunflower.jpg');
 // clothTexture.wrapS = clothTexture.wrapT = THREE.RepeatWrapping;
 clothTexture.anisotropy = 16;
 var clothMaterial = new THREE.MeshPhongMaterial({

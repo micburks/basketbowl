@@ -1,5 +1,5 @@
-import * as THREE from "three";
-import CANNON from "cannon";
+import * as THREE from 'three';
+import CANNON from 'cannon';
 
 export class World {
   constructor() {
