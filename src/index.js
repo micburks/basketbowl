@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import CANNON from 'cannon';
 import { World, WorldObject, Sphere } from './3d.js';
+import { Cloth } from './cloth.js';
 import { vec, clamp } from './math.js';
 
 const renderer = new THREE.WebGLRenderer();
@@ -16,10 +17,15 @@ camera.position.set(10, 0, 0);
 controls.update();
 
 const world = new World();
+// eslint-disable-next-line no-unused-vars
 const rimGroup = world.addGroup(getRim());
 const ball = new Sphere(0.475, vec(0, 0, 5));
 world.add(ball);
+const cloth = new Cloth({ x: 10, y: 10 }, 0.1);
+cloth.loadTexture('public/circuit_pattern.png');
+world.add(cloth);
 
+/*
 var clothMass = 1; // 1 kg in total
 var clothSize = 1; // 1 meter
 var Nx = 12;
@@ -80,14 +86,18 @@ object.customDepthMaterial = new THREE.MeshDepthMaterial({
   map: clothTexture,
   alphaTest: 0.5,
 });
+*/
 
 (function animate(time) {
   requestAnimationFrame(animate);
 
+  /*
+  cloth.update();
   clothGeometry.computeFaceNormals();
   clothGeometry.computeVertexNormals();
   clothGeometry.normalsNeedUpdate = true;
   clothGeometry.verticesNeedUpdate = true;
+  */
 
   renderer.render(world.scene, camera);
   if (ball.shouldReset()) {
@@ -139,7 +149,6 @@ function getRim() {
   }
 
   {
-    const angle = (3 * Math.PI) / 2;
     const width = 7.2;
     const height = 4.8;
     const depth = 0.125;

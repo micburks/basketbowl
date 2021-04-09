@@ -18,8 +18,12 @@ export class World {
   }
   add(object) {
     this.objects.push(object);
-    this.scene.add(object.mesh);
-    this.world.addBody(object.physics);
+    if (object.mesh) {
+      this.scene.add(object.mesh);
+    }
+    if (object.physics) {
+      this.world.addBody(object.physics);
+    }
   }
   addGroup(objects) {
     const group = new THREE.Group();
@@ -35,7 +39,7 @@ export class World {
     if (this.lastTime !== undefined) {
       let delta = (time - this.lastTime) / 1000;
       this.world.step(this.fixedTimeStep, delta, this.maxSubSteps);
-      this.objects.forEach((obj) => obj.update());
+      this.objects.forEach((obj) => obj.update(time));
     }
     this.lastTime = time;
   }
