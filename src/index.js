@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import CANNON from 'cannon';
-import { World, WorldObject, Sphere } from './3d.js';
-import { Cloth } from './cloth.js';
+import { World, WorldObject } from './world.js';
+import { Sphere } from './sphere.js';
+import { Cloth, sphereConstraint } from './cloth.js';
 import { vec, clamp } from './math.js';
 
 const renderer = new THREE.WebGLRenderer();
@@ -13,16 +14,23 @@ window.addEventListener('resize', setWindowSize);
 document.body.appendChild(renderer.domElement);
 
 setWindowSize();
-camera.position.set(10, 0, 0);
+camera.position.set(0, 0, 5);
 controls.update();
 
 const world = new World();
+
 // eslint-disable-next-line no-unused-vars
 const rimGroup = world.addGroup(getRim());
-const ball = new Sphere(0.475, vec(0, 0, 5));
+
+const maxBalls = 30;
+const ball = new Sphere(0.475, vec(0, -2, 5));
+const balls = [ball];
 world.add(ball);
-const cloth = new Cloth({ x: 10, y: 10 }, 0.1);
+
+const cloth = new Cloth({ x: 10, y: 4 }, 1);
 cloth.loadTexture('public/circuit_pattern.png');
+cloth.setPosition(vec(0, 0, 0));
+cloth.addConstraint(sphereConstraint(balls));
 world.add(cloth);
 
 /*
@@ -100,8 +108,11 @@ object.customDepthMaterial = new THREE.MeshDepthMaterial({
   */
 
   renderer.render(world.scene, camera);
-  if (ball.shouldReset()) {
-    ball.reset(ball);
+  for (const ball of balls) {
+    if (ball.shouldReset()) {
+      ball.reset(ball);
+    }
+    spawnIfNeeded(world, balls, time);
   }
   world.update(time);
 })();
@@ -118,20 +129,20 @@ function setWindowSize() {
 function getRim() {
   const objs = [];
   const yAxis = new THREE.Vector3(0, 1, 0);
-  const n = 6;
+  const n = 8;
   for (let i = 0; i < n; i++) {
     const width = 0.05;
-    const height = 1.5;
-    const depth = Math.sqrt(2); // .toPrecision(4);
+    const height = 0.1;
+    const depth = 0.85;
     const step = i / n;
     const angle = 2 * Math.PI * step;
     const mesh = new THREE.Mesh(
       new THREE.BoxGeometry(width, height, depth),
-      new THREE.MeshNormalMaterial()
+      new THREE.MeshNormalMaterial(),
     );
-    const x = Math.cos(angle) * 1.2;
-    const y = -height / 2;
-    const z = Math.sin(angle) * -1.2;
+    const x = Math.cos(angle);
+    const y = -0.55;
+    const z = -Math.sin(angle);
     mesh.position.set(x, y, z);
 
     const physics = new CANNON.Body({
@@ -154,7 +165,7 @@ function getRim() {
     const depth = 0.125;
     const mesh = new THREE.Mesh(
       new THREE.BoxGeometry(width, height, depth),
-      new THREE.MeshNormalMaterial()
+      new THREE.MeshNormalMaterial(),
     );
     const x = 0;
     const y = 1.2;
@@ -170,4 +181,31 @@ function getRim() {
     objs.push(new WorldObject(mesh, physics));
   }
   return objs;
+}
+
+let timeLastAdded = 0;
+function spawnIfNeeded(world, balls, now) {
+  if (balls.length > maxBalls) {
+    return;
+  }
+  let shouldCreate = false;
+  if (balls.length > 10) {
+    if (now - timeLastAdded > 300) {
+      shouldCreate = true;
+    }
+  }
+  if (balls.length > 3) {
+    if (now - timeLastAdded > 600) {
+      shouldCreate = true;
+    }
+  }
+  if (now - timeLastAdded > 1000) {
+    shouldCreate = true;
+  }
+  if (shouldCreate) {
+    const ball = new Sphere(0.475, vec(0, -2, 5));
+    balls.push(ball);
+    world.add(ball);
+    timeLastAdded = now;
+  }
 }

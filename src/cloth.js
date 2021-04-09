@@ -3,118 +3,153 @@ import { vec } from './math.js';
 
 const DAMPING = 0.03;
 const DRAG = 1 - DAMPING;
-const restDistance = 25;
-
-const MASS = 0.1;
-const windForce = new THREE.Vector3(0, 0, 0);
-const tmpForce = new THREE.Vector3();
-const GRAVITY = 981 * 1.4;
-const gravity = new THREE.Vector3(0, -GRAVITY, 0).multiplyScalar(MASS);
+const restDistance = 0.5;
+const GRAVITY = 9.82; // 981 * 1.4;
 const TIMESTEP = 18 / 1000;
 const TIMESTEP_SQ = TIMESTEP * TIMESTEP;
+
 const diff = new THREE.Vector3();
+const tmpForce = new THREE.Vector3();
+const windForce = new THREE.Vector3(0, 0, 0);
 
 const params = {
-  enableWind: true,
+  enableWind: false,
   showBall: false,
 };
 
 export class Cloth {
-  constructor(segments, mass) {
-    this.w = segments.x || 10;
-    this.h = segments.y || 10;
-    this.clothFunction = plane(restDistance * this.w, restDistance * this.h);
+  constructor(segments, mass, pos, size) {
+    this.w = segments.x;
+    this.h = segments.y;
+    this.clothFunction = hoop(this.w, this.h);
+    // this.clothFunction = hoop(restDistance * this.w, restDistance * this.h);
     this.mass = mass;
     this.particles = [];
     this.constraints = [];
+    this.gravity = new THREE.Vector3(0, -GRAVITY, 0).multiplyScalar(this.mass);
+    this.pins = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
-    // Create particles
+    // Create particles (one extra column and one extra row)
     for (let v = 0; v <= this.h; v++) {
-      for (let u = 0; u <= this.w; u++) {
+      for (let u = 0; u < this.w; u++) {
         this.particles.push(
-          new ClothParticle(this, vec(u / this.w, v / this.h, 0))
+          new ClothParticle(this, vec(u / (this.w - 1), v / this.h, 0)),
         );
       }
     }
 
     // Structural
+    // Connect regular particles to adjacent right and down particles
     for (let v = 0; v < this.h; v++) {
       for (let u = 0; u < this.w; u++) {
-        this.constraints.push([
-          this.particles[index(u, v, this.w)],
-          this.particles[index(u, v + 1, this.w)],
-          restDistance,
-        ]);
-        this.constraints.push([
-          this.particles[index(u, v, this.w)],
-          this.particles[index(u + 1, v, this.w)],
-          restDistance,
-        ]);
+        this.addConstraint((cloth) => {
+          satisfyConstraint(
+            cloth.particles[index(u, v, cloth.w)],
+            cloth.particles[index(u, v + 1, cloth.w)],
+            taper(restDistance, v),
+          );
+        });
+        this.addConstraint((cloth) => {
+          const isLast = u + 1 === cloth.w;
+          satisfyConstraint(
+            cloth.particles[index(u, v, cloth.w)],
+            cloth.particles[index((u + 1) % cloth.w, v, cloth.w)],
+            isLast ? 0.01 : taper(restDistance, v),
+          );
+        });
       }
     }
+    // Connect extra column straight down
+    /*
     for (let u = this.w, v = 0; v < this.h; v++) {
-      this.constraints.push([
-        this.particles[index(u, v, this.w)],
-        this.particles[index(u, v + 1, this.w)],
-        restDistance,
-      ]);
+      this.addConstraint((cloth) => {
+        satisfyConstraint(
+          cloth.particles[index(u, v, cloth.w)],
+          cloth.particles[index(u, v + 1, cloth.w)],
+          taper(restDistance, v),
+        );
+      });
+      // Experiment with connecting hoop
+      this.addConstraint((cloth) => {
+        satisfyConstraint(
+          cloth.particles[index(u, v, cloth.w)],
+          cloth.particles[index(0, v, cloth.w)],
+          taper(restDistance, v),
+        );
+      });
     }
+    */
+    // Connect extra row straight across
     for (let v = this.h, u = 0; u < this.w; u++) {
-      this.constraints.push([
-        this.particles[index(u, v, this.w)],
-        this.particles[index(u + 1, v, this.w)],
-        restDistance,
-      ]);
+      this.addConstraint((cloth) => {
+        const isLast = u + 1 === cloth.w;
+        satisfyConstraint(
+          cloth.particles[index(u, v, cloth.w)],
+          cloth.particles[index((u + 1) % cloth.w, v, cloth.w)],
+          isLast ? 0.01 : taper(restDistance, v),
+        );
+      });
     }
 
-    this.pinsFormation = [
-      [6],
-      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-      [0],
-      [], // cut the rope
-      [0, this.w], // classic 2 pins
-    ];
-    this.pins = this.pinsFormation[1];
+    this.addConstraint((cloth) => {
+      // Floor Constraints
+      for (const particle of cloth.particles) {
+        const pos = particle.position;
+        if (pos.y < -250) {
+          pos.y = -250;
+        }
+      }
+    });
+
+    this.addConstraint((cloth) => {
+      // Pin Constraints
+      for (const pinXY of cloth.pins) {
+        const p = cloth.particles[pinXY];
+        p.position.copy(p.original);
+        p.previous.copy(p.original);
+      }
+    });
 
     this.mesh = null;
     this.phsics = null;
   }
-  togglePins() {
-    this.pins = this.pinsFormation[
-      ~~(Math.random() * this.pinsFormation.length)
-    ];
-  }
   loadTexture(path) {
+    /*
     const loader = new THREE.TextureLoader();
     const clothTexture = loader.load(path);
-    clothTexture.anisotropy = 16;
-    const clothMaterial = new THREE.MeshLambertMaterial({
-      map: clothTexture,
+    */
+    // clothTexture.anisotropy = 16;
+    const clothMaterial = new THREE.MeshNormalMaterial({
+      // map: clothTexture,
       side: THREE.DoubleSide,
       alphaTest: 0.5,
     });
     // cloth geometry
     this.geometry = new THREE.ParametricBufferGeometry(
       this.clothFunction,
-      this.w,
-      this.h
+      this.w - 1,
+      this.h,
     );
     // cloth mesh
     this.mesh = new THREE.Mesh(this.geometry, clothMaterial);
-    this.mesh.position.set(0, 0, 0);
     this.mesh.castShadow = true;
+    /*
     this.mesh.customDepthMaterial = new THREE.MeshDepthMaterial({
       depthPacking: THREE.RGBADepthPacking,
       map: clothTexture,
       alphaTest: 0.5,
     });
+    */
+  }
+  setPosition({ x, y, z }) {
+    this.mesh.position.set(x, y, z);
   }
   update(now) {
     const windStrength = Math.cos(now / 7000) * 20 + 40;
     windForce.set(
       Math.sin(now / 2000),
       Math.cos(now / 3000),
-      Math.sin(now / 1000)
+      Math.sin(now / 1000),
     );
     windForce.normalize();
     windForce.multiplyScalar(windStrength);
@@ -138,53 +173,18 @@ export class Cloth {
         }
       }
     }
+
     for (const particle of this.particles) {
-      particle.addForce(gravity);
+      particle.addForce(this.gravity);
       particle.integrate(TIMESTEP_SQ);
     }
 
     // Start Constraints
     for (const constraint of this.constraints) {
-      satisfyConstraints(constraint[0], constraint[1], constraint[2]);
+      constraint(this);
     }
 
-    // Ball Constraints
-    /*
-    ballPosition.z = -Math.sin(now / 600) * 90; //+ 40;
-    ballPosition.x = Math.cos(now / 400) * 70;
-    if (params.showBall) {
-      sphere.visible = true;
-      for (let i = 0, il = particles.length; i < il; i++) {
-        const particle = particles[i];
-        const pos = particle.position;
-        diff.subVectors(pos, ballPosition);
-        if (diff.length() < ballSize) {
-          // collided
-          diff.normalize().multiplyScalar(ballSize);
-          pos.copy(ballPosition).add(diff);
-        }
-      }
-    } else {
-      sphere.visible = false;
-    }
-    */
-
-    // Floor Constraints
-    for (const particle of this.particles) {
-      const pos = particle.position;
-      if (pos.y < -250) {
-        pos.y = -250;
-      }
-    }
-
-    // Pin Constraints
-    for (const pinXY of this.pins) {
-      const p = this.particles[pinXY];
-      p.position.copy(p.original);
-      p.previous.copy(p.original);
-    }
-
-    // render
+    // Render
     for (let i = 0; i < this.particles.length; i++) {
       const v = this.particles[i].position;
       this.geometry.attributes.position.setXYZ(i, v.x, v.y, v.z);
@@ -192,21 +192,44 @@ export class Cloth {
     this.geometry.attributes.position.needsUpdate = true;
     this.geometry.computeVertexNormals();
   }
+  addConstraint(fn) {
+    this.constraints.push(fn);
+  }
+}
+
+export function sphereConstraint(spheres) {
+  return (cloth) => {
+    // Ball Constraints
+    for (const sphere of spheres) {
+      const spherePosition = sphere.physics.position;
+      for (const particle of cloth.particles) {
+        diff.subVectors(particle.position, spherePosition);
+        if (diff.length() < sphere.radius) {
+          // collided
+          diff.normalize().multiplyScalar(sphere.radius);
+          particle.position.copy(spherePosition).add(diff);
+        }
+      }
+    }
+  };
 }
 
 class ClothParticle {
   constructor(cloth, pos) {
-    this.position = new THREE.Vector3();
-    this.previous = new THREE.Vector3();
-    this.original = new THREE.Vector3();
+    // pos = % of width/height of cloth plane
     this.a = new THREE.Vector3(0, 0, 0); // acceleration
     this.invMass = 1 / cloth.mass;
     this.tmp = new THREE.Vector3();
     this.tmp2 = new THREE.Vector3();
 
+    this.position = new THREE.Vector3();
+    this.previous = new THREE.Vector3();
+    this.original = new THREE.Vector3();
+
+    // clothFunction creates position from pos so that pos is on a face
     cloth.clothFunction(pos.x, pos.y, this.position);
-    cloth.clothFunction(pos.x, pos.y, this.previous);
-    cloth.clothFunction(pos.x, pos.y, this.original);
+    this.previous.copy(this.position);
+    this.original.copy(this.position);
   }
   addForce(force) {
     // Force -> Acceleration
@@ -224,20 +247,44 @@ class ClothParticle {
   }
 }
 
-function plane(width, height) {
+function hoop(width, height) {
   return function (u, v, target) {
+    /*
     const x = (u - 0.5) * width;
     const y = (v + 0.5) * height;
     const z = 0;
     target.set(x, y, z);
+    */
+    const uMod = u - 0.5;
+    const vMod = v + 0.5;
+    target.set(
+      Math.cos(uMod * 2 * Math.PI + (Math.PI / 2)),
+      -vMod,
+      Math.sin(uMod * 2 * Math.PI + (Math.PI / 2)),
+    );
   };
 }
 
 function index(u, v, w) {
-  return u + v * (w + 1);
+  // return u + v * (w + 1);
+  return u + v * w;
 }
 
-function satisfyConstraints(p1, p2, distance) {
+function taper(val, quantity) {
+  return val / (quantity / 8 + 1);
+}
+
+function satisfyConstraint(p1, p2, distance) {
+  if (typeof p1 === 'undefined') {
+    debugger;
+  }
+  if (typeof p2 === 'undefined') {
+    debugger;
+  }
+  if (distance === 0) {
+    p2.position.copy(p1.position);
+    return;
+  }
   diff.subVectors(p2.position, p1.position);
   const currentDist = diff.length();
   if (currentDist === 0) return; // prevents division by 0

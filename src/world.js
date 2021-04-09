@@ -55,34 +55,3 @@ export class WorldObject {
     this.mesh.quaternion.copy(this.physics.quaternion);
   }
 }
-
-export class Sphere extends WorldObject {
-  constructor(radius, pos) {
-    const sphere = new THREE.Mesh(
-      new THREE.SphereGeometry(radius, 32, 32),
-      new THREE.MeshNormalMaterial()
-    );
-    sphere.position.set(pos.x, pos.y, pos.z);
-    const spherePhysics = new CANNON.Body({
-      mass: 1,
-      shape: new CANNON.Sphere(radius),
-      velocity: new CANNON.Vec3(0, 7, -10),
-    });
-    spherePhysics.position.copy(sphere.position);
-    super(sphere, spherePhysics);
-  }
-  shouldReset() {
-    return this.physics.position.y < -20;
-  }
-  reset() {
-    let xRand = Math.random() * 3;
-    let yRand = Math.random() * 3;
-    let zRand = Math.random() * 3;
-    this.physics.position = new CANNON.Vec3(0, 0, 5);
-    this.physics.velocity = new CANNON.Vec3(
-      -1.5 + xRand,
-      7 + yRand,
-      -10 + zRand
-    );
-  }
-}
