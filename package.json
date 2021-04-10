@@ -1,23 +1,23 @@
 {
   "name": "basketbowl",
   "version": "1.0.0",
-  "description": "",
+  "description": "Basketball animation",
   "main": "index.js",
   "scripts": {
     "build": "esbuild src/index.js --bundle --outfile=dist/index.js",
-    "build-cloth": "esbuild src/webgl/index.js --bundle --outfile=dist/cloth.js",
+    "build-w": "npm run build -- --watch",
     "lint": "eslint src",
-    "serve": "npm run build && npm run build-cloth && serve"
+    "start": "npm run build && serve",
+    "serve": "serve"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Mickey Burks <brks.mck@gmail.com>",
+  "license": "MIT",
   "dependencies": {
     "cannon": "^0.6.2",
-    "esbuild": "^0.11.5",
     "three": "^0.127.0"
   },
   "devDependencies": {
+    "esbuild": "^0.11.5",
     "eslint": "^7.23.0",
     "eslint-config-prettier": "^8.1.0",
     "eslint-plugin-prettier": "^3.3.1",

@@ -29,8 +29,12 @@ export class World {
     const group = new THREE.Group();
     for (const object of objects) {
       this.objects.push(object);
-      group.add(object.mesh);
-      this.world.addBody(object.physics);
+      if (object.mesh) {
+        group.add(object.mesh);
+      }
+      if (object.physics) {
+        this.world.addBody(object.physics);
+      }
     }
     this.scene.add(group);
     return group;
@@ -51,7 +55,9 @@ export class WorldObject {
     this.physics = physics;
   }
   update() {
-    this.mesh.position.copy(this.physics.position);
-    this.mesh.quaternion.copy(this.physics.quaternion);
+    if (this.physics) {
+      this.mesh.position.copy(this.physics.position);
+      this.mesh.quaternion.copy(this.physics.quaternion);
+    }
   }
 }
